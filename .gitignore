@@ -1,0 +1,51 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Testing
+coverage
+*.lcov
+
+# Env files (local overrides)
+.env
+.env.local
+.env.*.local
+
+# Note: .env.development, .env.staging, .env.production are versioned
+# These files contain default configuration for each environment
+
+# Build
+build
+dist
+out
+
+# Misc
+.cache
+storybook-static
+playwright-report
+test-results
+
+# K8s Secrets (valores sensibles — nunca versionar)
+DEV/secret-keycloak.yaml

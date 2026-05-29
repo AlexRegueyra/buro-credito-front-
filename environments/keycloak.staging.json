@@ -1,0 +1,8 @@
+{
+  "realm": "sgc-staging",
+  "auth-server-url": "https://auth-staging.example.com/auth",
+  "ssl-required": "external",
+  "resource": "sgc-client",
+  "public-client": true,
+  "confidential-port": 0
+}

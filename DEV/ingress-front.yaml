@@ -1,0 +1,44 @@
+# Ingress — Portafolio Institucional
+#
+# Aplicar:
+#   kubectl apply -f DEV/ingress-front.yaml -n portafolio-institucional
+#
+# Propósito de las anotaciones:
+#   - Rate limiting: segunda capa sobre el rate limit del BFF (anti-DDoS a nivel Nginx)
+#   - use-real-ip: el BFF usa X-Real-IP para rate limiting anti-spoofing por X-Forwarded-For
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-front
+  namespace: portafolio-institucional
+  annotations:
+    # ── Rate limiting ────────────────────────────────────────────────────────
+    # 10 requests/segundo por IP — bloquea flood antes de llegar al BFF
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    # Máximo 5 conexiones simultáneas por IP
+    nginx.ingress.kubernetes.io/limit-connections: "5"
+    # Código de respuesta cuando se supera el límite
+    nginx.ingress.kubernetes.io/limit-req-status-code: "429"
+
+    # ── X-Real-IP ────────────────────────────────────────────────────────────
+    # Garantiza que X-Real-IP llegue al BFF con la IP real del cliente.
+    # El BFF lo usa como clave del rate limiter para evitar bypass por X-Forwarded-For.
+    nginx.ingress.kubernetes.io/use-real-ip: "true"
+
+    # ── HTTPS ────────────────────────────────────────────────────────────────
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: srv-portaldev.nafin.com
+    http:
+      paths:
+      - path: /visor_docs_nafin
+        pathType: Prefix
+        backend:
+          service:
+            name: svc-front
+            port:
+              number: 80

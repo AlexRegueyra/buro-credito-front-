@@ -1,0 +1,8 @@
+{
+  "realm": "SGC_MOCK",
+  "auth-server-url": "http://localhost:3001/auth",
+  "ssl-required": "none",
+  "resource": "sgc-mock-client",
+  "public-client": true,
+  "confidential-port": 0
+}

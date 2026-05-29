@@ -1,0 +1,153 @@
+
+# ⚠️  TEMPORAL — mover los valores a un Secret gestionado por Rancher antes de producción.
+# Secret — keycloak-auth-secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: keycloak-auth-secret
+  namespace: portafolio-institucional
+type: Opaque
+stringData:
+  keycloak-auth-secret: "W3FTmh3hy0wpDCtPkBTxK51JLH2FHzTl"
+  session-secret: "W3FTmh3hy0wpDCtPkBTxK51JLH2FHzTl"
+
+---
+# Deployment — Portafolio Institucional BFF
+#
+# Migrado de Nginx estático → Node.js (Express BFF).
+# Mantiene la misma imagen, namespace, labels y secrets que el despliegue anterior.
+#
+# Keycloak y el backend viven fuera del cluster (srv-portaldev.nafin.com),
+# por lo que no hay URLs internas — el BFF los alcanza por HTTPS normalmente.
+#
+# Aplicar:
+#   kubectl apply -f DEV/dep-front.yaml -n portafolio-institucional
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dep-front
+  namespace: portafolio-institucional
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      workload.user.cattle.io/workloadselector: apps.deployment-portafolio-institucional-front
+  template:
+    metadata:
+      labels:
+        workload.user.cattle.io/workloadselector: apps.deployment-portafolio-institucional-front
+    spec:
+      # Tiempo para terminar requests en vuelo en rolling update.
+      # Debe ser mayor que el timeout de graceful shutdown en server/index.ts (10 s).
+      terminationGracePeriodSeconds: 30
+
+      hostAliases:
+      - ip: "10.0.0.4"
+        hostnames:
+        - "srv-portaldev.nafin.com"
+
+      containers:
+      - image: srv-nxs.nafin.com:8084/portafolio-institucional/front:latest
+        name: cont-front
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          name: port-front
+          protocol: TCP
+
+        # ─── Variables de entorno ─────────────────────────────────────────────
+        env:
+          # ── Servidor ──────────────────────────────────────────────────────
+          - name: NODE_ENV
+            value: "production"
+          - name: PORT
+            value: "3000"
+
+          # Keycloak en DEV usa certificado self-signed — quitar en PROD junto con STRICT_TLS
+          - name: NODE_TLS_REJECT_UNAUTHORIZED
+            value: "0"
+          # En PROD: agregar STRICT_TLS=true y eliminar NODE_TLS_REJECT_UNAUTHORIZED
+          # - name: STRICT_TLS
+          #   value: "true"
+
+          # ── Rutas de la aplicación ─────────────────────────────────────────
+          - name: APP_PUBLIC_URL
+            value: "https://srv-portaldev.nafin.com"
+          - name: APP_BASE_PATH
+            value: "/visor_docs_nafin"
+
+          # ── Keycloak — URLs ────────────────────────────────────────────────
+          # URL pública: usada por Issuer.discover() y para redirigir el browser
+          - name: KEYCLOAK_PUBLIC_URL
+            value: "https://srv-portaldev.nafin.com/auth"
+
+          # URL interna para token exchange server→Keycloak.
+          # Keycloak está fuera del cluster → misma URL que la pública.
+          - name: KEYCLOAK_INTERNAL_URL
+            value: "https://srv-portaldev.nafin.com/auth"
+
+          # ── Keycloak — Cliente confidencial ───────────────────────────────
+          - name: KEYCLOAK_REALM
+            value: "NAFIN"
+          - name: KEYCLOAK_CLIENT_ID
+            value: "visor_docs_nafin"
+
+          # client_secret — viene del Secret existente en Rancher
+          - name: KEYCLOAK_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: keycloak-auth-secret
+                key: keycloak-auth-secret
+
+          # ── Sesión ────────────────────────────────────────────────────────
+          - name: SESSION_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: keycloak-auth-secret
+                key: session-secret
+
+          - name: SESSION_MAX_AGE_MS
+            value: "28800000"   # 8 horas en milisegundos
+
+          # ── Roles ─────────────────────────────────────────────────────────
+          - name: ROLE_ADMIN_ID
+            value: "administrador"
+
+          # ── Backend ───────────────────────────────────────────────────────
+          # Backend externo al cluster — el BFF lo llama con Bearer token.
+          # El browser nunca ve esta URL ni el token.
+          - name: INTERNAL_API_PORTAFOLIO
+            value: "https://srv-portaldev.nafin.com/nafin/v2"
+
+        # ─── Recursos (Node.js necesita más RAM que Nginx) ───────────────────
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 300m
+            memory: 512Mi   # --max-old-space-size=400 deja margen para el OS
+
+        # ─── Health checks ────────────────────────────────────────────────────
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          failureThreshold: 3
+          timeoutSeconds: 5
+
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+          timeoutSeconds: 5
+
+      imagePullSecrets:
+      - name: secret-nexus-dev-8084
+      restartPolicy: Always

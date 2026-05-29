@@ -1,0 +1,32 @@
+
+# Service (ClusterIP) - corregido
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-front
+  namespace: portafolio-institucional
+spec:
+  ports:
+  - name: port-front
+    port: 80
+    protocol: TCP
+    targetPort: 3000  # Corregido para que coincida con containerPort
+  selector:
+    workload.user.cattle.io/workloadselector: apps.deployment-portafolio-institucional-front
+---
+# Service (NodePort) - corregido
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-nodeport-front
+  namespace: portafolio-institucional
+spec:
+  ports:
+  - name: port-front
+    nodePort: 30011
+    port: 80
+    protocol: TCP
+    targetPort: 3000  # Corregido para que coincida con containerPort
+  selector:
+    workload.user.cattle.io/workloadselector: apps.deployment-portafolio-institucional-front
+  type: NodePort

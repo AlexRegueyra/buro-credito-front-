@@ -1,0 +1,8 @@
+{
+  "realm": "sgc-dev",
+  "auth-server-url": "https://auth-dev.example.com/auth",
+  "ssl-required": "external",
+  "resource": "sgc-client",
+  "public-client": true,
+  "confidential-port": 0
+}
