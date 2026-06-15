@@ -26,7 +26,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth, LogoutButton } from '@features/auth';
-import { config } from '@lib/config';
+import { BuroLogo } from '@shared/components/BuroLogo';
 
 interface DashboardNavbarProps {
   onToggleSidebar: () => void;
@@ -95,13 +95,9 @@ export function DashboardNavbar({ onToggleSidebar, drawerWidth: _drawerWidth }: 
 
         {/* Center Section: Logo */}
         <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
-          <Box
-            component="img"
-            src={`${import.meta.env.BASE_URL}images/logos/porta_6.png`}
-            alt={config.appName}
-            sx={{ height: { xs: 36, lg: 50 }, objectFit: 'contain', display: { xs: 'none', sm: 'block' } }}
-            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-          />
+          <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center' }}>
+            <BuroLogo dark height={42} />
+          </Box>
         </Box>
 
         {/* Right Section: User Info + Actions */}

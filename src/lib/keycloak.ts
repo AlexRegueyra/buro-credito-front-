@@ -1,30 +1,28 @@
-/**
- * Capa de autenticación del cliente (BFF mode).
- *
- * ANTES: Este archivo inicializaba keycloak-js en el browser, gestionaba tokens
- *        en memoria y los exponía en la pestaña Network.
- *
- * AHORA: El BFF (Node.js) gestiona el flujo OIDC completo y los tokens.
- *        El browser solo sabe que tiene una cookie HttpOnly (__sid).
- *        Este archivo es un stub delgado que habla con el BFF.
- *
- * Lo que desapareció:
- *   - keycloakInstance (Keycloak.js)
- *   - initKeycloak / doInitKeycloak
- *   - getToken / getRefreshToken
- *   - silentCheckSsoRedirectUri
- *   - updateToken / setInterval de renovación
- *   - buildLogoutUrl / performLogoutRedirect
- *   Todo eso ahora lo hace src/server/routes/auth.routes.ts
- */
-
 import type { ServerUserInfo } from '@shared/types/auth.server.types';
+
+// ─── Mock de autenticación para desarrollo local (sin Keycloak/BFF) ──────────
+const IS_AUTH_MOCK = import.meta.env['VITE_AUTH_MOCK'] === 'true';
+
+const MOCK_USER: ServerUserInfo = {
+  userId: 'local-dev-user',
+  username: 'dev.local',
+  email: 'dev@buro-credito.local',
+  displayName: 'Dev Local',
+  primaryRole: 'buro-usuario',
+  keycloakId: 'mock-keycloak-id',
+  permissions: ['buro-usuario'],
+};
 
 /**
  * Redirige al BFF para iniciar el flujo Authorization Code + PKCE.
- * El BFF redirige a Keycloak → el browser nunca conoce la URL interna.
+ * En modo mock (VITE_AUTH_MOCK=true) recarga la página para que AuthProvider
+ * lea el usuario mock y entre directo al dashboard.
  */
 export function login(): void {
+  if (IS_AUTH_MOCK) {
+    window.location.reload();
+    return;
+  }
   const projectName = import.meta.env.VITE_NAME_PROJECT as string | undefined;
   const basePath = projectName ? `/${projectName}` : '';
   window.location.href = `${basePath}/auth/login`;
@@ -32,48 +30,51 @@ export function login(): void {
 
 /**
  * Cierra la sesión: destruye la cookie en el BFF y redirige a KC logout.
- * Usamos POST para protegerse de logout CSRF (links maliciosos no pueden hacer POST).
+ * En modo mock solo limpia el sessionStorage y redirige al root.
  */
 export async function logout(): Promise<void> {
   const projectName = import.meta.env.VITE_NAME_PROJECT as string | undefined;
   const basePath = projectName ? `/${projectName}` : '';
 
-  // Limpiar el auth-store de localStorage antes de la redirección
   try {
     localStorage.removeItem('auth-store');
+    sessionStorage.removeItem('auth-store');
   } catch {
-    // No es crítico si falla
+    // no es crítico
   }
 
-  // POST al BFF — el BFF invalida la sesión y redirige a Keycloak logout
+  if (IS_AUTH_MOCK) {
+    window.location.href = `${basePath}/`;
+    return;
+  }
+
   await fetch(`${basePath}/auth/logout`, {
     method: 'POST',
-    credentials: 'include', // incluir la cookie __sid
+    credentials: 'include',
   });
 
-  // La respuesta es un redirect 302 que el browser seguirá automáticamente.
-  // fetch no sigue redirects a otras origins, así que redirigimos manualmente:
   window.location.href = `${basePath}/`;
 }
 
 /**
  * Obtiene el perfil del usuario autenticado desde el BFF.
- * El BFF valida la cookie __sid y devuelve el ServerUserInfo.
- * Devuelve null si no hay sesión activa (no autenticado).
- *
- * Reemplaza a: initKeycloak() + getUserInfo() + getToken()
+ * En modo mock (VITE_AUTH_MOCK=true) devuelve MOCK_USER directamente.
  */
 export async function fetchCurrentUser(): Promise<ServerUserInfo | null> {
+  if (IS_AUTH_MOCK) {
+    return Promise.resolve(MOCK_USER);
+  }
+
   const projectName = import.meta.env.VITE_NAME_PROJECT as string | undefined;
   const basePath = projectName ? `/${projectName}` : '';
 
   const response = await fetch(`${basePath}/x-me`, {
-    credentials: 'include', // CRÍTICO: envía la cookie HttpOnly automáticamente
-    headers: { 'Accept': 'application/json' },
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
   });
 
   if (response.status === 401) {
-    return null; // No hay sesión activa
+    return null;
   }
 
   if (!response.ok) {

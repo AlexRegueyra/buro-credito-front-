@@ -37,6 +37,11 @@ export default defineConfig(({ mode }) => {
       port: 3001,
       open: true,
       proxy: {
+        '/api/decisions': {
+          target: 'http://localhost:8086',
+          changeOrigin: true,
+          secure: false,
+        },
         ...(env.VITE_API_TARGET
           ? {
             '/api': {

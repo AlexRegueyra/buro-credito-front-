@@ -14,6 +14,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import SimpleBar from 'simplebar-react';
 
 import 'simplebar-react/dist/simplebar.min.css';
+import { BuroLogo } from '@shared/components/BuroLogo';
 
 interface DashboardSidebarProps {
   open: boolean;
@@ -36,18 +37,12 @@ function NavContent({ onNavigate }: { onNavigate: (path: string) => void }) {
       <Box
         onClick={() => onNavigate('/consulta')}
         sx={{
-          p: 3, cursor: 'pointer', display: 'flex',
+          px: 2, cursor: 'pointer', display: 'flex',
           alignItems: 'center', justifyContent: 'center',
           minHeight: { xs: 64, lg: 84 },
         }}
       >
-        <Box
-          component="img"
-          src={`${import.meta.env.BASE_URL}images/logos/porta_6.png`}
-          alt="Logo"
-          sx={{ height: 50, objectFit: 'contain' }}
-          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-        />
+        <BuroLogo height={38} />
       </Box>
 
       <Divider />
